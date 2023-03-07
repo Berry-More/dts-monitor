@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <link rel="stylesheet" href="../static/css/style.css">
+        <title>{% block title %}Some page{% endblock %}</title>
+    </head>
+
+    <body>
+        {% block menu %}
+            <header>
+                <div class="container">
+                    <nav id="navigation">
+                        <img src="../static/img/image.png">
+                        <a aria-label="mobile menu" class="nav-toggle">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </a>
+                        <ul class="menu-left">
+                            <li><a href="/">Описание</a></li>
+                            <li><a href="/login/">Подключение</a></li>
+                            <li><a href="/message/">Связь с разработчиком</a></li>
+                        </ul>
+                    </nav>
+                </div>
+            </header>
+        {% endblock %}
+
+        <div class="container1">
+            {% block content %}
+            {% endblock %}
+        </div>
+    </body>
+</html>
