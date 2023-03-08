@@ -140,11 +140,16 @@ def dash_app(flask_app):
         heatmap.y = contour.y
         heatmap.z = contour.z
 
-        app.layout = create_layout(contour.y, contour.x)
         return 'ready'
 
     @app.callback(
-        Output(component_id='matrix', component_property='figure'),
+        [Output(component_id='matrix', component_property='figure'),
+         Output(component_id='time-slider', component_property='marks'),
+         Output(component_id='md-slider', component_property='min'),
+         Output(component_id='md-slider', component_property='max'),
+         Output(component_id='time-slider', component_property='min'),
+         Output(component_id='time-slider', component_property='max'),
+         ],
         [Input(component_id='md-slider', component_property='value'),
          Input(component_id='time-slider', component_property='value'),
          Input(component_id='color-list-box', component_property='value'),
@@ -155,15 +160,20 @@ def dash_app(flask_app):
         md = md * -1
         current_times = contour.x
         current_depth = contour.y
-        min_current_times = min(current_times)
-        max_current_times = max(current_times)
-        min_current_depth = min(current_depth)
-        max_current_depth = max(current_depth)
+        min_times = min(current_times)
+        max_times = max(current_times)
+        min_depth = min(current_depth)
+        max_depth = max(current_depth)
 
-        new_depth_line = go.Scatter(x=[min_current_times, max_current_times], y=[md, md], mode='lines',
+        marks = {
+            int(min_times.timestamp()): {'label': min_times.time()},
+            int(max_times.timestamp()): {'label': max_times.time()},
+        }
+
+        new_depth_line = go.Scatter(x=[min_times, max_times], y=[md, md], mode='lines',
                                     line=dict(color='black', width=0.5))
         new_time_line = go.Scatter(x=[datetime.fromtimestamp(time), datetime.fromtimestamp(time)],
-                                   y=[min_current_depth, max_current_depth], mode='lines',
+                                   y=[min_depth, max_depth], mode='lines',
                                    line=dict(color='black', width=0.5))
 
         if matrix_type == 'contour':
@@ -173,16 +183,18 @@ def dash_app(flask_app):
 
         current_matrix.colorscale = color_value
         new_fig = go.Figure(data=[current_matrix, new_depth_line, new_time_line], layout=plotly_layout)
-        new_fig.update_xaxes(title_text='Date, time', range=(min_current_times, max_current_times))
-        new_fig.update_yaxes(title_text='MD [m]', range=(max_current_depth, min_current_depth))
+        new_fig.update_xaxes(title_text='Date, time', range=(min_times, max_times))
+        new_fig.update_yaxes(title_text='MD [m]', range=(max_depth, min_depth))
         new_fig.update_layout(title='Temperature matrix [°С]')
-        return new_fig
+
+        return new_fig, marks, max_depth * -1, min_depth * -1, min_times.timestamp(), max_times.timestamp()
 
     @app.callback(
         Output(component_id='md-line', component_property='figure'),
-        [Input(component_id='time-slider', component_property='value')]
+        [Input(component_id='time-slider', component_property='value'),
+         Input(component_id='interval-draw', component_property='n_intervals')]
     )
-    def update_md(time):
+    def update_md(time, n):
         current_times = contour.x
         current_depth = contour.y
         current_temp = contour.z
@@ -198,9 +210,10 @@ def dash_app(flask_app):
 
     @app.callback(
         Output(component_id='time-line', component_property='figure'),
-        [Input(component_id='md-slider', component_property='value')]
+        [Input(component_id='md-slider', component_property='value'),
+         Input(component_id='interval-draw', component_property='n_intervals')]
     )
-    def update_time(md):
+    def update_time(md, n):
         current_times = contour.x
         current_depth = contour.y
         current_temp = contour.z
