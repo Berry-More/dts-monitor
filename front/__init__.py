@@ -68,11 +68,11 @@ def create_layout(depth, times):
 
             dbc.Col([
                 dcc.Graph(id='matrix',
-                          style={'height': '538px', 'width': '100%'}),  # 'width': '800px'
+                          style={'height': '538px', 'width': '100%', 'margin-left': '10px'}),  # 'width': '800px'
                 html.Div('Time slider',
-                         style={'text-align': 'left', 'margin-left': '20px'}),
+                         style={'text-align': 'left', 'margin-left': '5px'}),
                 html.Div(time_slider,
-                         style={'margin-left': '30px', 'width': '98%'}),  # 'width': '720px'
+                         style={'margin-left': '30px', 'width': '100%'}),  # 'width': '720px'
                 dcc.Graph(id='time-line', style={'height': '220px'})
             ], width=8),
 
@@ -83,7 +83,7 @@ def create_layout(depth, times):
                 html.Div(color_list_box, style={'margin-top': '5px', 'margin-left': '40px'}),
                 html.Div('Current matrix type', style={'margin-top': '20px', 'margin-left': '40px'}),
                 html.Div(matrix_list_box, style={'margin-top': '5px', 'margin-left': '40px'}),
-                dcc.Interval(id='interval-data', interval=10*1000, n_intervals=0),
+                dcc.Interval(id='interval-data', interval=10*1000, n_intervals=0),  # interval in ms
                 dcc.Interval(id='interval-draw', interval=1*1000, n_intervals=0),
                 html.Div(id='hidden-div', style={'display': 'none'}),
             ], width=3)
@@ -95,7 +95,8 @@ def create_layout(depth, times):
 
 def dash_app(flask_app):
     app = dash.Dash(
-        server=flask_app, name='Dashboard', url_base_pathname='/dash/', external_stylesheets=[dbc.themes.BOOTSTRAP]
+        server=flask_app, name='Dashboard', url_base_pathname='/visualisation/',
+        external_stylesheets=[dbc.themes.BOOTSTRAP]
     )
 
     times = np.array([datetime(2023, 1, 1), datetime(2023, 1, 2)])
@@ -109,7 +110,7 @@ def dash_app(flask_app):
                          colorscale=color_scale,
                          colorbar=dict(orientation='h', thicknessmode='pixels', thickness=20, outlinecolor='white',
                                        outlinewidth=1, lenmode='pixels', len=250, tickfont=dict(color='black'),
-                                       yanchor='top', x=0.73, y=1.14)
+                                       yanchor='top', x=0.7, y=1.14)
                          )
 
     contour = go.Contour(z=temp,
@@ -118,7 +119,7 @@ def dash_app(flask_app):
                          colorscale=color_scale,
                          colorbar=dict(orientation='h', thicknessmode='pixels', thickness=20, outlinecolor='white',
                                        outlinewidth=1, lenmode='pixels', len=250, tickfont=dict(color='black'),
-                                       yanchor='top', x=0.73, y=1.14)
+                                       yanchor='top', x=0.7, y=1.14)
                          )
 
     plotly_layout = go.Layout(template='plotly_white', showlegend=False, coloraxis=dict(colorbar=dict(thickness=50)),
@@ -131,14 +132,16 @@ def dash_app(flask_app):
         Input(component_id='interval-data', component_property='n_intervals')
     )
     def time_update(n):
-        response = requests.get('http://127.0.0.1:5000/get_data/').json()
-
-        contour.x = np.array(str_to_datetime(response['times']))
-        contour.y = np.array(response['depth'])
-        contour.z = np.array(response['temp'])
-        heatmap.x = contour.x
-        heatmap.y = contour.y
-        heatmap.z = contour.z
+        response = requests.get('http://127.0.0.1:5000/data/current/').json()
+        if response['times'] is None:
+            return 'ready'
+        else:
+            contour.x = np.array(str_to_datetime(response['times']))
+            contour.y = np.array(response['depth'])
+            contour.z = np.array(response['temp'])
+            heatmap.x = contour.x
+            heatmap.y = contour.y
+            heatmap.z = contour.z
 
         return 'ready'
 

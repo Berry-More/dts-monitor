@@ -6,12 +6,15 @@ import numpy as np
 def load_las(path):
     data = []
     file_names = os.listdir(path)
-    for i in range(len(file_names)):
-        file = lasio.read(os.path.join(path, file_names[i]))
-        date = file.well['DATE'].value
-        data.append((date, file))
-    data = np.array(data)
-    return data[data[:, 0].argsort()]
+    if len(file_names) != 0:
+        for i in range(len(file_names)):
+            file = lasio.read(os.path.join(path, file_names[i]))
+            date = file.well['DATE'].value
+            data.append((date, file))
+        data = np.array(data)
+        return data[data[:, 0].argsort()]
+    else:
+        raise OSError('Files not exists!')
 
 
 def get_data(las_files):

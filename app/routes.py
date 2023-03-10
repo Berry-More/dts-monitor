@@ -1,14 +1,19 @@
 from app import app
-from app.forms import MessageForm, SFTPForm
+from app.forms import SFTPForm
 
 from flask import render_template, redirect, url_for, jsonify
 from functions import load_las, get_data
 
 
+settings = {
+    'time-interval': 15  # file numbers
+}
+
+
 @app.route('/')
 @app.route('/index')
 def index():
-    return render_template('index.html')
+    return redirect(url_for('login'))
 
 
 @app.route('/login/', methods=['GET', 'POST'])
@@ -26,25 +31,15 @@ def login():
     return render_template('login.html', form=form)
 
 
-@app.route('/get_data/', methods=['GET'])
-def get_data_for_dash():
-    las_files = load_las(r'D:\Temp\Work\НОЦ ГПН\Optical fiber\New_program\getting_data')
-    if len(las_files) > 15:
-        las_files = las_files[-15::]
-    times, depth, temp = get_data(las_files)
-    return jsonify({'times': times, 'depth': depth, 'temp': temp.tolist()})
+@app.route('/data/current/', methods=['GET'])
+def data_sending():
+    try:
+        las_files = load_las(r'D:\Temp\Work\НОЦ ГПН\Optical fiber\New_program\getting_data')
+        if len(las_files) > settings['time-interval']:
+            las_files = las_files[-1*settings['time-interval']::]
+        times, depth, temp = get_data(las_files)
+        return jsonify({'times': times, 'depth': depth, 'temp': temp.tolist()})
 
+    except OSError:
+        return jsonify({'times': None, 'depth': None, 'temp': None})
 
-@app.route('/message/', methods=['GET', 'POST'])
-def message():
-    form = MessageForm()
-    if form.validate_on_submit():
-        name = form.name.data
-        email = form.email.data
-        message = form.message.data
-        print('\n'+name)
-        print(email)
-        print(message)
-        print('Data received!\n')
-        return redirect(url_for('message'))
-    return render_template('message.html', form=form)
