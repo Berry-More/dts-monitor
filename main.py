@@ -1,9 +1,5 @@
-import webbrowser
-
-from app import app
+from app import server
 
 
 if __name__ == '__main__':
-    # # открываю браузер и запускаю приложение
-    # webbrowser.open('http://127.0.0.1:5000/login/', new=0)
-    app.run(debug=True)  # arg: debug=True
+    server.run(host='0.0.0.0', debug=False)  # arg: debug=True

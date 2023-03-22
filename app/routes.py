@@ -1,45 +1,65 @@
-from app import app
-from app.forms import SFTPForm
+from app import server, dash_application
 
-from flask import render_template, redirect, url_for, jsonify
-from functions import load_las, get_data
+from flask import redirect, url_for, jsonify, request
+from functions.back import get_data, post_date
 
 
 settings = {
-    'time-interval': 15  # file numbers
+    'time-interval': 60,  # minutes
 }
 
 
-@app.route('/')
-@app.route('/index')
+@server.route('/')
+@server.route('/index')
 def index():
-    return redirect(url_for('login'))
+    return redirect(url_for('dash_visual'))
 
 
-@app.route('/login/', methods=['GET', 'POST'])
-def login():
-    form = SFTPForm()
-    if form.validate_on_submit():
-        hostname = form.hostname.data
-        port = form.port.data
-        username = form.username.data
-        password = form.password.data
-        print('\n' + hostname, port)
-        print(username, password)
-        print('Data received!\n')
-        return redirect(url_for('login'))
-    return render_template('login.html', form=form)
+""" API """
 
 
-@app.route('/data/current/', methods=['GET'])
+# Get settings
+@server.route('/current/settings/', methods=['GET'])
+def settings_sending():
+    return jsonify(settings)
+
+
+# Get data
+@server.route('/current/data/', methods=['GET'])
 def data_sending():
     try:
-        las_files = load_las(r'D:\Temp\Work\НОЦ ГПН\Optical fiber\New_program\getting_data')
-        if len(las_files) > settings['time-interval']:
-            las_files = las_files[-1*settings['time-interval']::]
-        times, depth, temp = get_data(las_files)
+        times, depth, temp = get_data(settings['time-interval'])
         return jsonify({'times': times, 'depth': depth, 'temp': temp.tolist()})
 
-    except OSError:
+    except ValueError:
         return jsonify({'times': None, 'depth': None, 'temp': None})
 
+
+# Post data
+@server.route('/current/data/post/', methods=['POST'])
+def data_posting():
+    if request.json:
+        new_file = {
+            'time': request.json['time'],
+            'depth': request.json['depth'],
+            'temp': request.json['temp'],
+            'place': request.json['place']
+        }
+        post_date(new_file)
+        return jsonify({'new_file': new_file}), 201
+
+
+# Post interval set
+@server.route('/current/data/interval/', methods=['POST'])
+def interval_posting():
+    if request.json:
+        settings['time-interval'] = request.json['interval']
+        return jsonify({'sets': settings}), 201
+
+
+""" VISUALISATION """
+
+
+@server.route('/visualisation/')
+def dash_visual():
+    return dash_application.index()
