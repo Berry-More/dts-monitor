@@ -1,12 +1,7 @@
 from app import server, dash_application
 
 from flask import redirect, url_for, jsonify, request
-from functions.back import get_data, post_date
-
-
-settings = {
-    'time-interval': 60,  # minutes
-}
+from functions.back import post_date
 
 
 @server.route('/')
@@ -16,23 +11,6 @@ def index():
 
 
 """ API """
-
-
-# Get settings
-@server.route('/current/settings/', methods=['GET'])
-def settings_sending():
-    return jsonify(settings)
-
-
-# Get data
-@server.route('/current/data/', methods=['GET'])
-def data_sending():
-    try:
-        times, depth, temp = get_data(settings['time-interval'])
-        return jsonify({'times': times, 'depth': depth, 'temp': temp.tolist()})
-
-    except ValueError:
-        return jsonify({'times': None, 'depth': None, 'temp': None})
 
 
 # Post data
@@ -47,14 +25,6 @@ def data_posting():
         }
         post_date(new_file)
         return jsonify({'new_file': new_file}), 201
-
-
-# Post interval set
-@server.route('/current/data/interval/', methods=['POST'])
-def interval_posting():
-    if request.json:
-        settings['time-interval'] = request.json['interval']
-        return jsonify({'sets': settings}), 201
 
 
 """ VISUALISATION """

@@ -4,14 +4,14 @@ import sqlite3 as sl
 from datetime import datetime
 
 
-def get_all_times(minutes):
+def get_all_times(minutes, place):
     with sl.connect('dts.db') as con:
         cur = con.cursor()
         request = """
         SELECT time
         FROM dts 
-        WHERE time > {} AND depth = 0;
-        """.format(datetime.now().timestamp() - minutes * 60)
+        WHERE time > {} AND depth = 0 AND place == "{}";
+        """.format(datetime.now().timestamp() - minutes * 60, place)
         result = list(cur.execute(request))
         if len(result) == 0:
             raise ValueError
@@ -26,10 +26,10 @@ def nums_to_datetime(array):
     return date_array
 
 
-def get_data(minutes):
+def get_data(minutes, place):
     with sl.connect('dts.db') as con:
         cur = con.cursor()
-        times = np.sort(get_all_times(minutes))  # по возрастанию
+        times = np.sort(get_all_times(minutes, place))  # по возрастанию
         depth = []
         temp = []
 
@@ -37,8 +37,8 @@ def get_data(minutes):
             request = """
             SELECT depth, temp
             FROM dts
-            WHERE time == {};
-            """.format(i)
+            WHERE time == {} AND place == "{}";
+            """.format(i, place)
 
             current_data = np.array(list(cur.execute(request))).T
             temp.append(current_data[1])
@@ -46,6 +46,20 @@ def get_data(minutes):
                 depth = current_data[0]
 
         return nums_to_datetime(times), list(depth), np.array(temp).T
+
+
+def get_all_places():
+    with sl.connect('dts.db') as con:
+        cur = con.cursor()
+        request = """
+        SELECT DISTINCT place
+        FROM dts
+        """
+        result = list(cur.execute(request))
+        if len(result) == 0:
+            raise ValueError
+        else:
+            return np.array(result).T[0]
 
 
 def post_date(data_dict):
