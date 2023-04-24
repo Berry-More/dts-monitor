@@ -14,7 +14,7 @@ def get_all_times(minutes, place):
         """.format(datetime.now().timestamp() - minutes * 60, place)
         result = list(cur.execute(request))
         if len(result) == 0:
-            raise ValueError
+            raise ValueError('No data')
         else:
             return np.array(result).T[0]
 
@@ -46,6 +46,31 @@ def get_data(minutes, place):
                 depth = current_data[0]
 
         return nums_to_datetime(times), list(depth), np.array(temp).T
+
+
+def new_get_data(minutes, place):
+    with sl.connect('dts.db') as con:
+        cur = con.cursor()
+        request = """
+        SELECT time, depth, temp
+        FROM dts
+        WHERE time > {} AND place == "{}";
+        """.format(datetime.now().timestamp() - minutes * 60, place)
+
+        current_data = np.array(list(cur.execute(request)))
+        times = get_all_times(minutes, place)
+
+        # bad response
+        if len(current_data) == 0:
+            raise ValueError('No data')
+
+        # different len
+        if len(current_data) % len(times) != 0:
+            raise ValueError('Bad line length')
+
+        out = np.reshape(current_data.T[::-1],
+                         (3, len(times), int(len(current_data) / len(times))))
+        return nums_to_datetime(out[2].T[0]), list(out[1][0]), out[0].T
 
 
 def get_all_places():

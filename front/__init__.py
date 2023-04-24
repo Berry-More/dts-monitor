@@ -1,12 +1,13 @@
 import dash
+import requests
 import numpy as np
 import plotly.graph_objects as go
 import dash_mantine_components as dmc
 import dash_bootstrap_components as dbc
 
-from functions.back import get_data, get_all_places
+from functions.back import get_all_places
 from datetime import datetime, timedelta
-from dash import dcc, html, Input, Output
+from dash import dcc, html, ctx, Input, Output
 
 
 def get_index(array, value):
@@ -26,24 +27,34 @@ def str_to_datetime(array):
     return new_array
 
 
-update_times = {'10 sec': 10, '30 sec': 30, '1.5 min': 90, '3 min': 60 * 3,
-                '5 min': 60 * 5, '10 min': 60 * 10, '15 min': 60 * 15}
+update_times = {'10 sec': 10, '30 sec': 30,
+                '1.5 min': 90, '3 min': 60 * 3,
+                '5 min': 60 * 5, '10 min': 60 * 10,
+                '15 min': 60 * 15}
 
-range_times = {'30 min': 30, '1 hour': 60, '2 hours': 120, '6 hours': 360, '1 day': 1440, '7 days': 10080}
-
-
-colors = ['jet', 'inferno', 'magenta', 'turbo', 'portland']
-color_list_box = dcc.Dropdown(colors, colors[-1], id='color-list-box')
-matrix_list_box = dcc.Dropdown(['heatmap', 'contour'], 'heatmap', id='matrix-list-box')
-data_time_list_box = dcc.Dropdown(['10 sec', '30 sec', '1.5 min', '3 min', '5 min', '10 min', '15 min'], '1.5 min',
-                                  id='data-time-list-box')
-interval_list_box = dcc.Dropdown(['30 min', '1 hour', '2 hours', '6 hours', '1 day', '7 days'], '6 hours',
-                                 id='interval-list-box')
-all_places = get_all_places()
-places_list_box = dcc.Dropdown(all_places, all_places[0], id='places-list-box')
+range_times = {'30 min': 30, '1 hour': 60,
+               '2 hours': 120, '6 hours': 360,
+               '1 day': 1440, '7 days': 1440 * 7,
+               '14 days': 1440 * 14, '30 days': 1440 * 30}
 
 
-def create_layout(depth, times, temp):
+def create_layout(app, depth, times, temp):
+    colors = ['portland', 'jet', 'inferno', 'magenta', 'turbo']
+    color_list_box = dcc.Dropdown(colors, colors[0], id='color-list-box')
+    matrix_types = ['heatmap', 'contour']
+    matrix_list_box = dcc.Dropdown(matrix_types, matrix_types[0], id='matrix-list-box')
+    data_time_list_box = dcc.Dropdown(['10 sec', '30 sec',
+                                       '1.5 min', '3 min',
+                                       '5 min', '10 min', '15 min'],
+                                      '1.5 min',
+                                      id='data-time-list-box')
+    interval_list_box = dcc.Dropdown(['30 min', '1 hour', '2 hours',
+                                      '6 hours', '1 day', '7 days',
+                                      '14 days', '30 days'],
+                                     '1 day',
+                                     id='interval-list-box')
+    all_places = get_all_places()  # вот это плохо, надо как-то переделать
+    places_list_box = dcc.Dropdown(all_places, all_places[0], id='places-list-box')
 
     """ SLIDERS """
 
@@ -51,7 +62,12 @@ def create_layout(depth, times, temp):
         id='md-slider',
         max=min(depth) * -1,
         min=max(depth) * -1,
+        step=2,
         value=min(depth) * -1,
+        marks={
+            int(min(depth)) * -1: int(min(depth)),
+            int(max(depth)) * -1: int(max(depth)),
+        },
         vertical=True,
         verticalHeight=570,
         included=False,
@@ -114,59 +130,72 @@ def create_layout(depth, times, temp):
             html.Div('Well name', style={'margin-top': '5px'}),
             html.Div(places_list_box, style={'margin-top': '5px'}),
         ])
-
     ])
 
     """ MAIN LAYOUT """
 
     result_layout = html.Div([
 
-        dbc.Row([
+        # header
+        html.Div([
+            dbc.Row([
+                html.Img(src=app.get_asset_url('icon.png'),
+                         style={'width': '200px',
+                                'margin-top': '5px',
+                                'margin-left': '5px'}),
 
-            dbc.Col([
-                html.H2('DTS Monitor'),
-            ], style={'margin-bottom': '5px', 'margin-top': '5px'}),
+                dbc.Col([
+                    html.H2('DTS Monitor',
+                            style={'margin-bottom': '5px',
+                                   'margin-top': '5px',
+                                   'text-align': 'left'}),
+                    html.H6('Optical fiber',
+                            style={'margin-bottom': '5px',
+                                   'margin-top': '5px',
+                                   'text-align': 'left'}),
+                ], align='start'),
 
-            dbc.Col([
-                html.H6(id='transfer-status')
-            ], style={'text-align': 'right'})
+                dbc.Col([
+                    html.H6(id='transfer-status')
+                ], style={'text-align': 'right', 'margin-right': '5px'})
 
-        ]),
+            ]),
+        ], className='app-header'),
 
-        dbc.Tabs([
-            dbc.Tab(tab_visual_content, label='Visualisation settings'),
-            dbc.Tab(tab_update_content, label='Update settings')
-        ], style={'margin-bottom': '0px'}),
+        # body
+        html.Div([
+            dbc.Tabs([
+                dbc.Tab(tab_visual_content, label='Visualisation settings'),
+                dbc.Tab(tab_update_content, label='Update settings')
+            ], style={'margin-bottom': '0px'}),
 
-        dmc.Divider(variant='solid', style={'margin-top': '25px'}),
+            dmc.Divider(variant='solid', style={'margin-top': '25px'}),
 
-        dbc.Row([
+            dbc.Row([
 
-            dbc.Col([
-                html.Div('MD slider',
-                         style={'text-align': 'left', 'margin-left': '5px', 'width': '100px'}),
-                html.Div(depth_slider, style={'margin-top': '12px'})
-            ], width=1),
+                dbc.Col([
+                    html.Div(depth_slider, style={'margin-top': '34px'})
+                ], width=1),
 
-            dbc.Col([
-                dcc.Graph(id='matrix',
-                          style={'height': '638px', 'width': '100%', 'margin-left': '10px'}),  # 'width': '800px'
-                html.Div('Time slider',
-                         style={'text-align': 'left', 'margin-left': '5px'}),
-                html.Div(time_slider,
-                         style={'margin-left': '30px', 'width': '100%'}),  # 'width': '720px'
-                dcc.Graph(id='time-line', style={'height': '240px', 'width': '1120px',
-                                                 'margin-left': '15px', 'margin-bottom': '20px'})
-            ], width=8),
+                dbc.Col([
+                    dcc.Graph(id='matrix',
+                              style={'height': '638px', 'width': '100%', 'margin-left': '10px'}),  # 'width': '800px'
+                    html.Div(time_slider,
+                             style={'margin-left': '30px', 'width': '100%'}),  # 'width': '720px'
+                    dcc.Graph(id='time-line', style={'height': '240px', 'width': '100%',
+                                                     'margin-left': '15px', 'margin-bottom': '20px'})
+                    # dcc.Graph(id='time-line', style={'height': '240px', 'width': '1120px',
+                    #                                  'margin-left': '15px', 'margin-bottom': '20px'})
+                ], width=8),
 
-            dbc.Col([
-                html.Div('MD graph', style={'margin-left': '40px'}),
-                dcc.Graph(id='md-line', style={'height': '600px'}),
-                dcc.Interval(id='interval', interval=10*1000, n_intervals=0),  # interval in ms
-                html.Div(id='hidden-div', style={'display': 'none'}),
-            ], width=3)
-        ], style={'margin-top': '20px'})
-    ], style={'margin-left': '100px', 'margin-right': '100px'})
+                dbc.Col([
+                    dcc.Graph(id='md-line', style={'height': '622px'}),
+                    dcc.Interval(id='interval', interval=10 * 1000, n_intervals=0),  # interval in ms
+                    html.Div(id='hidden-div', style={'display': 'none'}),
+                ], width=3)
+            ], style={'margin-top': '20px'})
+        ], style={'margin-left': '5%', 'margin-right': '5%'})  # 'margin-left': '100px', 'margin-right': '100px'
+    ])
 
     return result_layout
 
@@ -174,18 +203,19 @@ def create_layout(depth, times, temp):
 def dash_app(flask_app):
     app = dash.Dash(
         server=flask_app, name='Dashboard', url_base_pathname='/visualisation/',
-        external_stylesheets=[dbc.themes.BOOTSTRAP]
+        external_stylesheets=[dbc.themes.BOOTSTRAP],
+        meta_tags=[{'name': 'viewport',
+                    'content': 'width=device-width, initial-scale=0.5, maximum-scale=0.7, minimum-scale=0.5'}]
     )
 
-    times, depth, temp = get_data(1440, 'Kluchi')
-    times = np.array(str_to_datetime(times))
+    times = np.array([datetime.now(), datetime.now()])
+    depth = np.array([1, 2])
+    temp = np.array([[0, 2], [3, 25]])
 
     sets = {
         'time': [min(times), max(times)],
         'depth': [min(depth), max(depth)],
         'temp': [temp.min(initial=None), temp.max(initial=None)],
-        'time-interval': 1440,
-        'place': 'Kluchi'
     }
 
     color_scale = 'portland'
@@ -214,48 +244,57 @@ def dash_app(flask_app):
         margin=dict(r=0, t=35, b=0, l=0)
     )
 
-    app.layout = create_layout(depth, times, temp)
+    app.layout = create_layout(app, depth, times, temp)
 
-    # Изменение промежутка подаваемых данных и места
+    # Settings update
     @app.callback(
         Output(component_id='hidden-div', component_property='value'),
         [Input(component_id='interval-list-box', component_property='value'),
          Input(component_id='places-list-box', component_property='value')]
     )
-    def update_interval(interval, place):
-        sets['time-interval'] = range_times[interval]
-        sets['place'] = place
+    def update_settings(interval, place):
+        triggered_id = ctx.triggered_id
+        if triggered_id == 'interval-list-box':
+            json = {'time': range_times[interval]}
+            requests.post('http://127.0.0.1:5000/current/settings/time/post/', json=json)
+        elif triggered_id == 'places-list-box':
+            json = {'place': place}
+            requests.post('http://127.0.0.1:5000/current/settings/place/post/', json=json)
         return 'ready'
 
-    # Обновление данных и надписи в углу
+    # Data update
     @app.callback(
         Output(component_id='transfer-status', component_property='children'),
         [Input(component_id='interval', component_property='n_intervals'),
-         Input(component_id='interval-list-box', component_property='value'),
-         Input(component_id='places-list-box', component_property='value')]
+         Input(component_id='hidden-div', component_property='value')]
     )
-    def time_update(n, interval, place):
-        new_times, new_depth, new_temp = get_data(sets['time-interval'] + 15, sets['place'])
+    def time_update(n, value):
 
-        contour.x = np.array(str_to_datetime(new_times))
-        contour.y = np.array(new_depth)
-        contour.z = np.array(new_temp)
-        heatmap.x = contour.x
-        heatmap.y = contour.y
-        heatmap.z = contour.z
+        response = requests.get('http://127.0.0.1:5000/current/data/').json()
+        if response['times'] is None:
+            return 'bad request'
+        else:
+            contour.x = np.array(str_to_datetime(response['times']))
+            contour.y = np.array(response['depth'])
+            contour.z = np.array(response['temp'])
+            heatmap.x = contour.x
+            heatmap.y = contour.y
+            heatmap.z = contour.z
 
-        max_time = datetime.now()
-        min_time = max_time - timedelta(minutes=range_times[interval])
-        sets['time'] = [min_time, max_time]
-        sets['depth'] = [min(contour.y), max(contour.y)]
-        sets['temp'] = [contour.z.min(initial=None), contour.z.max(initial=None)]
+            max_time = datetime.now()
+            min_time = max_time - timedelta(minutes=response['time-interval'])
 
-        return 'Last update: ' + str(contour.x[-1])
+            sets['time'] = [min_time, max_time]
+            sets['depth'] = [min(contour.y), max(contour.y)]
+            sets['temp'] = [contour.z.min(initial=None), contour.z.max(initial=None)]
 
-    # Обновление матрицы
+            return 'Last update: ' + str(contour.x[-1])
+
+    # Matrix update
     @app.callback(
         [Output(component_id='matrix', component_property='figure'),
          Output(component_id='time-slider', component_property='marks'),
+         Output(component_id='md-slider', component_property='marks'),
          Output(component_id='md-slider', component_property='min'),
          Output(component_id='md-slider', component_property='max'),
          Output(component_id='time-slider', component_property='min'),
@@ -280,12 +319,15 @@ def dash_app(flask_app):
         min_temp = sets['temp'][0]
         max_temp = sets['temp'][1]
 
-        marks = {
-            int(min_time.timestamp()): {'label': min_time.time()},
-            int(max_time.timestamp()): {'label': max_time.time()},
+        marks_t = {
+            int(min_time.timestamp() + 1): min_time.strftime('%H:%M:%S'),
+            int(max_time.timestamp()): max_time.strftime('%H:%M:%S'),
         }
 
-        # обновление траекторий профилей по глубине и времени на матрице
+        ticks = np.linspace(min_depth, max_depth, 5)
+        marks_md = {-1*int(i): int(i) for i in ticks}
+
+        # Update time and depth profile lines on matrix
         new_depth_line = go.Scatter(x=[min_time, max_time], y=[md, md], mode='lines',
                                     line=dict(color='black', width=0.5))
         new_time_line = go.Scatter(x=[datetime.fromtimestamp(time), datetime.fromtimestamp(time)],
@@ -299,28 +341,29 @@ def dash_app(flask_app):
 
         current_matrix.colorscale = color_value
 
-        # Установка значений колорбара
+        # Update color bar values
         current_matrix.zauto = False
         current_matrix.zmin = color_bar_range[0]
         current_matrix.zmax = color_bar_range[1]
 
-        # Создание рисунка, с добавлением пределов по осям, названия и рамки рисунка
+        # Picture creation with limits and picture frame
         new_fig = go.Figure(data=[current_matrix, new_depth_line, new_time_line], layout=plotly_layout)
-        new_fig.update_xaxes(title_text='Date, time', range=(min_time, max_time))  # предел по времени
-        new_fig.update_yaxes(title_text='MD [m]', range=(max_depth, min_depth))  # предел по глубине
-        new_fig.update_layout(title='Thermogram 2D [°С]')  # название
-        new_fig.add_shape(type='rect', xref='paper', yref='paper',  # рамка
+        new_fig.update_xaxes(title_text='Date, time', autorange=False, range=(min_time, max_time))  # Time limit
+        new_fig.update_yaxes(title_text='Cable length [m]', autorange=False, range=(max_depth, min_depth))  # Depth limit
+        new_fig.update_layout(title={'text': 'Thermogram 2D [°С]', 'y': 0.989, 'font': dict(size=17)},
+                              font=dict(family='Century Gothic', size=13))
+        new_fig.add_shape(type='rect', xref='paper', yref='paper',  # Picture frame
                           x0=0, y0=0, x1=1.0, y1=1.0,
                           line=dict(color='black', width=0.5))
 
-        # Штука предназначенная для корректной работы зума во время обновления
+        # Zoom controller when picture update
         new_fig.layout.uirevision = True
 
         min_time = min_time.timestamp()
         max_time = max_time.timestamp()
-        return new_fig, marks, max_depth * -1, min_depth * -1, min_time, max_time, min_temp, max_temp
+        return new_fig, marks_t, marks_md, max_depth * -1, min_depth * -1, min_time, max_time, min_temp, max_temp
 
-    # Обновление графика по глубине
+    # Update depth picture
     @app.callback(
         Output(component_id='md-line', component_property='figure'),
         [Input(component_id='time-slider', component_property='value'),
@@ -333,14 +376,17 @@ def dash_app(flask_app):
         t_value = current_temp.T[get_index(current_times, datetime.fromtimestamp(time))]
         depth_fig = go.Figure(data=go.Scatter(x=t_value, y=current_depth, mode='lines', opacity=0.75,
                                               line=dict(color='red', width=0.75)), layout=plotly_layout)
-        depth_fig.update_yaxes(title_text='MD [m]', range=(max(current_depth), min(current_depth)))
+        depth_fig.update_yaxes(title_text='Cable length [m]', range=(max(current_depth), min(current_depth)))
         depth_fig.update_xaxes(title_text='Temperature [°C]', range=get_range(t_value, 0.1))
         depth_fig.add_shape(type='rect', xref='paper', yref='paper', x0=0, y0=0, x1=1.0, y1=1.0,
                             line=dict(color='black', width=0.5))
+        depth_fig.update_layout(title={'text': 'Thermogram 1D', 'y': 0.989, 'x': 0.10, 'font': dict(size=17)},
+                                margin=dict(t=55),
+                                font=dict(family='Century Gothic', size=13))
         depth_fig.layout.uirevision = True
         return depth_fig
 
-    # Обновление графика по времени
+    # Update time picture
     @app.callback(
         Output(component_id='time-line', component_property='figure'),
         [Input(component_id='md-slider', component_property='value'),
@@ -361,10 +407,11 @@ def dash_app(flask_app):
         time_fig.update_xaxes(title_text='Date, time', range=(min_time, max_time))
         time_fig.add_shape(type='rect', xref='paper', yref='paper', x0=0, y0=0, x1=1.0, y1=1.0,
                            line=dict(color='black', width=0.5))
+        time_fig.update_layout(font=dict(family='Century Gothic'))
         time_fig.layout.uirevision = True
         return time_fig
 
-    # Изменение интервала таймера
+    # Change timer interval
     @app.callback(
         [Output(component_id='interval', component_property='interval')],
         [Input(component_id='data-time-list-box', component_property='value')])
