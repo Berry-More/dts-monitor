@@ -7,11 +7,11 @@ from datetime import datetime
 from psycopg2.extras import DictCursor
 
 
-dbname = '*'
-user = '*'
-password = '*'
-host = '*'
-tab = '*'
+dbname = 'holedb'
+user = 's_ponasenko'
+password = 'Vdycm-8w3uZ'
+host = '84.237.52.212'
+tab = 'holedb_schema.dts'
 
 
 # Convert time stamps to date time objects
@@ -121,7 +121,7 @@ def get_data(minutes, place, depth_min, depth_max):
     with psycopg2.connect(dbname=dbname, user=user, password=password, host=host) as conn:
         with conn.cursor(cursor_factory=DictCursor) as cursor:
             select = """
-            SELECT time, depth, temp
+            SELECT DISTINCT time, depth, temp
             FROM {0}
             WHERE time > {1} AND place = '{2}' """.format(tab, datetime.now().timestamp() - minutes * 60, place)
 
